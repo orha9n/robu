@@ -128,8 +128,16 @@ class SesliYanit:
                     if first:
                         if olcum:
                             olcum('first_tts_chunk_generated')
+                        # Kendi adıyla: ses karıştırıcısında "Robu" görünür ve PipeWire'ın başka
+                        # paplay kullanımları için hatırladığı ses düzeyi (ör. %0) buna uygulanmaz.
                         player = subprocess.Popen(['paplay', '--raw', '--rate=48000', '--channels=1',
-                                                   '--format=s16le', '--latency-msec=80'],
+                                                   '--format=s16le', '--latency-msec=80',
+                                                   '--client-name=Robu',
+                                                   '--stream-name=Robu sesli yanıt',
+                                                   '--property=application.name=Robu',
+                                                   '--property=media.name=Robu sesli yanıt',
+                                                   '--property=application.icon_name=robu',
+                                                   '--property=media.role=accessibility'],
                                                   stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
                         self._player = player
                         if olcum:
