@@ -117,10 +117,13 @@ unzip vosk-model-small-tr-0.3.zip && rm vosk-model-small-tr-0.3.zip
 
 ### İsteğe bağlı: Sesli yanıt (EMA Lightning)
 
-Cevapları yerel yapay sesle okumak için (PyTorch dahil ~2 GB):
+Cevapları yerel yapay sesle okumak için (PyTorch dahil ~1 GB). Robu EMA'yı yalnızca işlemcide
+çalıştırır; bu yüzden önce **CPU sürümü PyTorch** kurulur. Bu adım atlanırsa pip, ekran kartı
+(CUDA) kütüphaneleriyle birlikte ~5 GB'lık sürümü indirir ve bunlar hiç kullanılmaz.
 
 ```bash
 python3 -m venv ~/.local/share/robu/ema-venv
+~/.local/share/robu/ema-venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
 ~/.local/share/robu/ema-venv/bin/pip install ema-lightning==1.0.1
 # Modeli bir kez indir (sonra Robu çevrimdışı çalışır):
 ~/.local/share/robu/ema-venv/bin/python -c "from ema_lightning import EMA; EMA(device='cpu')"
