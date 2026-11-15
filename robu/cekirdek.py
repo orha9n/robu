@@ -1045,8 +1045,19 @@ class Ajan:
         böylece ilk soru hızlı cevaplanır.
         """
         ollama = Ollama(self.ayar["ollama"])
-        for _ in ollama.sohbet_akisi(self._govde(self.mesajlar[:1], num_predict=1)):
-            pass
+        try:
+            for _ in ollama.sohbet_akisi(self._govde(self.mesajlar[:1], num_predict=1)):
+                pass
+        except Exception as hata:
+            # Bazı sohbet şablonları (ör. Qwen3.5) kullanıcı mesajı olmayan isteği reddeder
+            # ("No user query found in messages"); model yüklenmiştir ama ısınma 500 döner.
+            # Kısa bir kullanıcı mesajıyla bir kez daha dene: sistem öneki yine önbelleğe girer.
+            try:
+                yedek = self.mesajlar[:1] + [{"role": "user", "content": "merhaba"}]
+                for _ in ollama.sohbet_akisi(self._govde(yedek, num_predict=1)):
+                    pass
+            except Exception:
+                raise hata from None
 
     def not_ekle(self, metin):
         """Kullanıcının arayüzde yaptığı (ör. geri alma) bir şeyi bir sonraki soruda modele
