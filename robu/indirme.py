@@ -23,6 +23,46 @@ def _sayi(n):
     return str(n)
 
 
+class IlerlemeToplami:
+    """Ollama bir modeli birden çok dosya (katman) olarak indirir: ör. görsel modellerde
+    dil modeli + görüntü kodlayıcı (mmproj). Her katmanın ilerlemesi ayrı gelir; tek başına
+    gösterilince ikinci dosyada çubuk sıfırlanıp indirme baştan başlamış gibi görünür.
+    Burada katmanlar özetlerine (digest) göre toplanır."""
+
+    BUYUK = 1_000_000  # bundan küçük katmanlar (şablon, lisans) dosya sayısına girmez
+
+    def __init__(self):
+        self.katmanlar = {}  # digest -> (inen, toplam)
+
+    def ekle(self, v):
+        """Katman ilerlemesiyse kaydeder ve True döner."""
+        ozet, toplam = v.get("digest"), v.get("total")
+        if not ozet or not toplam or v.get("completed") is None:
+            return False
+        self.katmanlar[ozet] = (min(v["completed"], toplam), toplam)
+        return True
+
+    @property
+    def inen(self):
+        return sum(i for i, _ in self.katmanlar.values())
+
+    @property
+    def toplam(self):
+        return sum(t for _, t in self.katmanlar.values())
+
+    @property
+    def oran(self):
+        return self.inen / self.toplam if self.toplam else 0.0
+
+    @property
+    def dosya_sayisi(self):
+        return sum(1 for _, t in self.katmanlar.values() if t >= self.BUYUK)
+
+    def metin(self):
+        m = f"{self.inen / 1e9:.2f} / {self.toplam / 1e9:.2f} GB"
+        return m + (f" · {self.dosya_sayisi} dosya" if self.dosya_sayisi > 1 else "")
+
+
 def _arka_plan(is_, sonra):
     def calis():
         try:
@@ -151,6 +191,9 @@ class IndirmePenceresi(Gtk.Window):
         self.ilerleme_etiket = Gtk.Label(xalign=0)
         self.ilerleme_etiket.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
         self.ilerleme = Gtk.ProgressBar(show_text=True)
+        self.ilerleme.set_tooltip_text(
+            "Tüm dosyaların toplamı. Bazı modeller (ör. görsel destekliler) birden çok dosyadan "
+            "oluşur; sonraki dosya başlayınca toplam boyut büyür.")
         dikey.pack_start(self.ilerleme_etiket, False, False, 0)
         dikey.pack_start(self.ilerleme, False, False, 0)
         self.ilerleme_kutu.pack_start(dikey, True, True, 0)
@@ -354,6 +397,7 @@ class IndirmePenceresi(Gtk.Window):
             self.bilgi.set_text("Zaten bir indirme sürüyor; bitmesini bekle ya da iptal et.")
             return
         self.inen = ad
+        self.toplam = IlerlemeToplami()
         self.dur = threading.Event()
         self.ilerleme_etiket.set_text(f"İndiriliyor: {ad}")
         self.ilerleme.set_fraction(0)
@@ -384,11 +428,11 @@ class IndirmePenceresi(Gtk.Window):
 
     def _ilerle(self, v):
         durum = v.get("status", "")
-        toplam, inen = v.get("total"), v.get("completed")
-        if toplam and inen is not None:
-            self.ilerleme.set_fraction(inen / toplam)
-            self.ilerleme.set_text(f"{inen / 1e9:.2f} / {toplam / 1e9:.2f} GB")
-            self.ana.indirme_durumu(f"⬇ %{inen * 100 // toplam} · {cekirdek.kisa_ad(self.inen)}")
+        if self.toplam.ekle(v):
+            t = self.toplam
+            self.ilerleme.set_fraction(t.oran)
+            self.ilerleme.set_text(t.metin())
+            self.ana.indirme_durumu(f"⬇ %{int(t.oran * 100)} · {cekirdek.kisa_ad(self.inen)}")
         else:
             ceviri = {"pulling manifest": "bilgiler alınıyor…",
                       "verifying sha256 digest": "doğrulanıyor…",
