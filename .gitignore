@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+
+# Ölçüm ve davranış testi çıktıları (araçlar yeniden üretir)
+docs/performance/
+tests/davranis-*.json
