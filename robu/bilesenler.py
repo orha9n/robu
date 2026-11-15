@@ -72,6 +72,12 @@ CSS = b"""
 .giris textview, .giris textview text { background-color: transparent; }
 .gonder { border-radius: 10px; min-width: 76px; }
 .durum { padding: 4px 12px; border-top: 1px solid alpha(@theme_fg_color, 0.1); }
+.indirme-gosterge {
+    padding: 0 8px; min-height: 0; border-radius: 8px; font-size: 90%;
+    background-color: alpha(#3fb6b2, 0.14); color: #2a7f86;
+}
+.indirme-gosterge:hover { background-color: alpha(#3fb6b2, 0.26); }
+.indirme-gosterge.indirme-hata { background-color: alpha(#e0a526, 0.18); color: #9a6a00; }
 .nokta-yesil { color: #2fa36b; }
 .nokta-kirmizi { color: #e5533d; }
 .nokta-sari { color: #e0a526; }

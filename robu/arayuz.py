@@ -46,6 +46,8 @@ class RobuPenceresi(GecmisPaneli, AyarPaneli, Gtk.ApplicationWindow):
         self.modeller = []
         self.indirme = None
         self.indirme_metni = None
+        self.indirme_bitti = False
+        self.indirme_zamanlayici = None
         self.yonetim = None
         self.sohbet_kayit = None  # açık sohbetin kaydı (ilk cevaptan sonra oluşur)
         self.onay_kutusu = None   # cevap bekleyen Onaylıyorum/Onaylamıyorum düğmeleri
@@ -244,6 +246,18 @@ class RobuPenceresi(GecmisPaneli, AyarPaneli, Gtk.ApplicationWindow):
         kutu.pack_start(self.durum_etiket, True, True, 0)
         kutu.pack_start(self.isinma, False, False, 0)
         kutu.pack_end(self.hiz_etiket, False, False, 0)
+        # Arka plandaki model indirmesi: bağlam/hız yazısından ayrı, tıklayınca pencereyi açar.
+        self.indirme_dugme = Gtk.Button(relief=Gtk.ReliefStyle.NONE)
+        self.indirme_dugme.get_style_context().add_class("indirme-gosterge")
+        self.indirme_etiket = Gtk.Label()
+        self.indirme_etiket.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+        self.indirme_etiket.set_max_width_chars(40)
+        self.indirme_dugme.add(self.indirme_etiket)
+        self.indirme_dugme.set_tooltip_text("İndirme penceresini aç")
+        self.indirme_dugme.connect("clicked", lambda _b: self.indirme_ac())
+        self.indirme_dugme.set_no_show_all(True)
+        self.indirme_etiket.show()
+        kutu.pack_end(self.indirme_dugme, False, False, 0)
         self.onay_rozeti = Gtk.Label(label="⚠ Komutlar onaysız · arama/sayfa açma izinli")
         self.onay_rozeti.get_style_context().add_class("rozet")
         self.onay_rozeti.get_style_context().add_class("rozet-uyari")
@@ -617,16 +631,32 @@ class RobuPenceresi(GecmisPaneli, AyarPaneli, Gtk.ApplicationWindow):
     def indirme_ac(self):
         if self.indirme is None:
             self.indirme = IndirmePenceresi(self, self._indirildi)
+        if self.indirme_bitti:  # sonuç görüldü; sürmeyen indirmenin göstergesi kalkar
+            self.indirme_durumu(None)
         self.indirme.present()
 
     def _indirildi(self, ad):
-        self.indirme_durumu(None)
+        self.indirme_durumu(f"✓ {cekirdek.kisa_ad(ad)} indirildi", bitti=True)
         self._modelleri_yenile()
 
-    def indirme_durumu(self, metin):
-        """İndirme penceresi kapalıyken de ilerleme durum çubuğunda görünsün."""
-        self.indirme_metni = metin
-        self.hiz_etiket.set_text(metin or "")
+    def indirme_durumu(self, metin, bitti=False):
+        """İndirme penceresi kapalıyken de ilerleme durum çubuğunda görünsün.
+        bitti: indirme sona erdi (başarı/hata); başarı birkaç saniye sonra kendiliğinden kalkar,
+        hata tıklanıp görülene kadar kalır."""
+        self.indirme_metni, self.indirme_bitti = metin, bitti
+        if self.indirme_zamanlayici:
+            GLib.source_remove(self.indirme_zamanlayici)
+            self.indirme_zamanlayici = None
+        self.indirme_etiket.set_text(metin or "")
+        stil = self.indirme_dugme.get_style_context()
+        (stil.add_class if metin and metin.startswith("⚠") else stil.remove_class)("indirme-hata")
+        self.indirme_dugme.set_visible(bool(metin))
+        if metin and bitti and metin.startswith("✓"):
+            def kaldir():
+                self.indirme_zamanlayici = None
+                self.indirme_durumu(None)
+                return False
+            self.indirme_zamanlayici = GLib.timeout_add_seconds(8, kaldir)
 
     def _isit(self, bosalt=None):
         """Seçili modeli belleğe yükler. Küçük RAM'de iki model birden sığmayıp

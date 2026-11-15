@@ -154,7 +154,14 @@ class IndirmePenceresi(Gtk.Window):
         dikey.pack_start(self.ilerleme_etiket, False, False, 0)
         dikey.pack_start(self.ilerleme, False, False, 0)
         self.ilerleme_kutu.pack_start(dikey, True, True, 0)
+        arka = Gtk.Button(label="Arka planda sürdür", valign=Gtk.Align.END)
+        arka.set_tooltip_text("Pencereyi kapatır; indirme sürer. İlerleme Robu'nun durum "
+                              "çubuğunda görünür, oraya tıklayınca bu pencere yeniden açılır.")
+        arka.get_style_context().add_class("suggested-action")
+        arka.connect("clicked", lambda _b: self.hide())
+        self.ilerleme_kutu.pack_start(arka, False, False, 0)
         iptal = Gtk.Button(label="İptal", valign=Gtk.Align.END)
+        iptal.set_tooltip_text("İndirmeyi durdurur. Yeniden başlatırsan kaldığı yerden sürer.")
         iptal.connect("clicked", lambda _b: self.dur and self.dur.set())
         self.ilerleme_kutu.pack_start(iptal, False, False, 0)
         kok.pack_start(self.ilerleme_kutu, False, False, 0)
@@ -352,7 +359,8 @@ class IndirmePenceresi(Gtk.Window):
         self.ilerleme.set_fraction(0)
         self.ilerleme.set_text("başlıyor…")
         self.ilerleme_kutu.show()
-        self.bilgi.set_text("Pencereyi kapatabilirsin; indirme arka planda sürer.")
+        self.bilgi.set_text("İndirme sürerken Robu'yu kullanabilirsin: «Arka planda sürdür» "
+                            "pencereyi kapatır, ilerleme durum çubuğunda görünür.")
         ollama = cekirdek.Ollama(self.ana.ayar["ollama"])
         dur = self.dur
 
@@ -380,7 +388,7 @@ class IndirmePenceresi(Gtk.Window):
         if toplam and inen is not None:
             self.ilerleme.set_fraction(inen / toplam)
             self.ilerleme.set_text(f"{inen / 1e9:.2f} / {toplam / 1e9:.2f} GB")
-            self.ana.indirme_durumu(f"İndiriliyor %{inen * 100 // toplam}: {self.inen}")
+            self.ana.indirme_durumu(f"⬇ %{inen * 100 // toplam} · {cekirdek.kisa_ad(self.inen)}")
         else:
             ceviri = {"pulling manifest": "bilgiler alınıyor…",
                       "verifying sha256 digest": "doğrulanıyor…",
@@ -393,7 +401,10 @@ class IndirmePenceresi(Gtk.Window):
         self.ilerleme_kutu.hide()
         if hata:
             self.bilgi.set_text(hata)
-            self.ana.indirme_durumu(None)
+            # Kullanıcı iptal ettiyse gösterge kapanır; hata ise pencere kapalıyken de görünsün.
+            iptal = hata.startswith("İptal")
+            self.ana.indirme_durumu(None if iptal else "⚠ İndirme durdu · ayrıntı için tıkla",
+                                    bitti=not iptal)
             return False
         if "tools" in yetenek:
             self.bilgi.set_text(f"✓ {ad} indirildi. Model seçiciden seçebilirsin.")
